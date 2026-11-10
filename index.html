@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orientation – Filtres</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<!-- API Grist : copie locale (fichier grist-plugin-api.js placé à côté de index.html),
+     sinon instance La Suite numérique, sinon getgrist.com. -->
+<script src="grist-plugin-api.js"></script>
+<script>
+  if (typeof grist === 'undefined') {
+    document.write('<script src="https://grist.numerique.gouv.fr/grist-plugin-api.js"><\/script>');
+  }
+</script>
+<script>
+  if (typeof grist === 'undefined') {
+    document.write('<script src="https://docs.getgrist.com/grist-plugin-api.js"><\/script>');
+  }
+</script>
+<style>
+  :root {
+    --bg: #faf8fd;
+    --ink: #3d3a55;
+    --muted: #8a87a3;
+    --line: #e6e1f2;
+    --lavande: #ebe6fb;  --lavande-fort: #8f82d6;
+    --menthe:  #dff4ea;  --menthe-fort:  #5fb592;
+    --peche:   #ffe9de;  --peche-fort:   #e9906b;
+    --ciel:    #dcecfb;  --ciel-fort:    #6aa6dc;
+    --rose:    #fde4ec;  --rose-fort:    #de7a9b;
+    --beurre:  #fff3cf;  --beurre-fort:  #d9ad3c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px;
+    font-family: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 14px; color: var(--ink); background: var(--bg);
+  }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  h1 { font-size: 20px; margin: 0; font-weight: 800; }
+  .resume { display: flex; align-items: center; gap: 10px; }
+  .compteur { background: var(--lavande); color: #5b4fb0; padding: 6px 14px; border-radius: 999px; font-weight: 700; }
+  button { font: inherit; cursor: pointer; }
+  .btn-reset { border: 1px solid var(--line); background: #fff; color: var(--ink); padding: 6px 14px; border-radius: 999px; font-weight: 600; }
+  .btn-reset:hover { background: var(--rose); border-color: var(--rose-fort); }
+  .grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 12px; }
+  .carte { background: var(--tint); border-radius: 16px; padding: 12px 14px 14px; border: 1px solid rgba(0,0,0,.04); }
+  .carte-titre { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 2px dashed var(--accent); }
+  .carte-titre h2 { margin: 0; font-size: 14px; font-weight: 800; color: var(--accent-ink); }
+  .outils button { border: 0; background: rgba(255,255,255,.7); color: var(--accent-ink); font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; margin-left: 4px; }
+  .outils button:hover { background: #fff; }
+  .options { display: flex; flex-direction: column; gap: 2px; max-height: 230px; overflow-y: auto; }
+  label.opt { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 8px; cursor: pointer; }
+  label.opt:hover { background: rgba(255,255,255,.6); }
+  label.opt .n { margin-left: auto; font-size: 12px; color: var(--muted); }
+  input[type=checkbox], input[type=radio] { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+  .sous { margin-left: 24px; }
+  .sous label.opt { padding: 2px 6px; font-size: 13px; }
+  .sous.inactif { opacity: .45; pointer-events: none; }
+  .t-lavande { --tint: var(--lavande); --accent: var(--lavande-fort); --accent-ink: #5b4fb0; }
+  .t-menthe  { --tint: var(--menthe);  --accent: var(--menthe-fort);  --accent-ink: #2f7d5d; }
+  .t-peche   { --tint: var(--peche);   --accent: var(--peche-fort);   --accent-ink: #b0572f; }
+  .t-ciel    { --tint: var(--ciel);    --accent: var(--ciel-fort);    --accent-ink: #31709f; }
+  .t-rose    { --tint: var(--rose);    --accent: var(--rose-fort);    --accent-ink: #a8446a; }
+  .t-beurre  { --tint: var(--beurre);  --accent: var(--beurre-fort);  --accent-ink: #8a6a12; }
+  .resultats { margin-top: 16px; background: #fff; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+  .resultats-tete { padding: 10px 14px; background: var(--lavande); font-weight: 700; color: #5b4fb0; display: flex; justify-content: space-between; }
+  .table-wrap { max-height: 420px; overflow: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 7px 12px; text-align: left; white-space: nowrap; }
+  th { position: sticky; top: 0; background: #f4f1fc; font-weight: 700; font-size: 13px; }
+  tbody tr:nth-child(even) { background: #fbfaff; }
+  tbody tr:hover { background: var(--beurre); }
+  .vide { padding: 24px; text-align: center; color: var(--muted); }
+  .message { padding: 24px; background: var(--peche); border-radius: 16px; line-height: 1.5; }
+  @media (prefers-reduced-motion: no-preference) { label.opt, button { transition: background .15s; } }
+</style>
+</head>
+<body>
+<div id="app"><div class="message">Chargement des données…</div></div>
+
+<script>
+/* ---------- Configuration ---------- */
+const MAX_LIGNES = 500; // nombre maximum de lignes affichées dans le tableau
+
+// Facettes affichées (ordre = ordre d'affichage). "phase" est gérée à part.
+const FACETTES = [
+  { cle: 'palier',      titre: 'Palier - Formation', teinte: 't-lavande' },
+  { cle: 'phase',       titre: 'Phase',              teinte: 't-peche',  speciale: true },
+  { cle: 'sexe',        titre: 'Sexe',               teinte: 't-rose' },
+  { cle: 'secteur',     titre: 'Secteur',            teinte: 't-menthe' },
+  { cle: 'departement', titre: 'Département',        teinte: 't-ciel' },
+  { cle: 'academie',    titre: 'Académie',           teinte: 't-beurre' },
+  { cle: 'ministere',   titre: 'Ministère',          teinte: 't-lavande' }
+];
+
+// Colonnes de la table ORIENTATION (mappées automatiquement si leur nom correspond,
+// sinon à associer dans le panneau « Données du widget » de Grist).
+const COLONNES = [
+  { name: 'palier',      title: 'Palier',      type: 'Any' },
+  { name: 'phase',       title: 'Phase',       type: 'Any' },
+  { name: 'sexe',        title: 'Sexe',        type: 'Any' },
+  { name: 'secteur',     title: 'Secteur',     type: 'Any' },
+  { name: 'departement', title: 'Département', type: 'Any', optional: true },
+  { name: 'academie',    title: 'Académie',    type: 'Any', optional: true },
+  { name: 'ministere',   title: 'Ministère',   type: 'Any', optional: true }
+];
+
+/* ---------- État ---------- */
+let lignes = [];
+let colonnesActives = [];
+const exclus = {};                       // exclus[cle] = Set des valeurs décochées
+const phase = { prov: true, provSub: 'tous', def: true, defSub: 'tous', appel: true };
+
+/* ---------- Utilitaires ---------- */
+const norm = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const libelle = v => (v === null || v === undefined || v === '') ? '(vide)' : String(v);
+
+// Classe la valeur de la colonne « phase » : { cat: 'prov'|'def'|'appel'|null, sub: string|null }
+function classerPhase(v) {
+  const n = norm(v);
+  if (n.includes('appel')) return { cat: 'appel', sub: null };
+  if (n.includes('intention')) return { cat: 'prov', sub: 'intention' };
+  if (n.includes('avis')) return { cat: 'prov', sub: 'avis' };
+  if (n.includes('choix')) return { cat: 'def', sub: 'choix' };
+  if (n.includes('decision')) return { cat: 'def', sub: 'decision' };
+  if (n.includes('provisoire')) return { cat: 'prov', sub: null };
+  if (n.includes('definitiv')) return { cat: 'def', sub: null };
+  return { cat: null, sub: null };
+}
+
+function phaseOk(v) {
+  const { cat, sub } = classerPhase(v);
+  if (cat === 'appel') return phase.appel;
+  if (cat === 'prov') return phase.prov && (phase.provSub === 'tous' || !sub || sub === phase.provSub);
+  if (cat === 'def')  return phase.def  && (phase.defSub  === 'tous' || !sub || sub === phase.defSub);
+  return true;
+}
+
+function ligneOk(l, ignorer) {
+  for (const f of FACETTES) {
+    if (f.cle === ignorer || !colonnesActives.includes(f.cle)) continue;
+    if (f.speciale) { if (!phaseOk(l[f.cle])) return false; continue; }
+    if (exclus[f.cle] && exclus[f.cle].has(l[f.cle])) return false;
+  }
+  return true;
+}
+
+function valeurs(cle) {
+  const m = new Map();
+  lignes.forEach(l => m.set(l[cle], (m.get(l[cle]) || 0) + 1));
+  return [...m.entries()].sort((a, b) => libelle(a[0]).localeCompare(libelle(b[0]), 'fr', { numeric: true }));
+}
+
+/* ---------- Rendu ---------- */
+function rendreFacette(f) {
+  if (f.speciale) return rendrePhase(f);
+  const opts = valeurs(f.cle).map(([v, n], i) => {
+    const id = `${f.cle}-${i}`;
+    const coche = !(exclus[f.cle] && exclus[f.cle].has(v));
+    return `<label class="opt" for="${id}">
+      <input type="checkbox" id="${id}" data-cle="${f.cle}" data-i="${i}" ${coche ? 'checked' : ''}>
+      <span>${esc(libelle(v))}</span><span class="n">${n}</span></label>`;
+  }).join('');
+  return `<section class="carte ${f.teinte}">
+    <div class="carte-titre"><h2>${f.titre}</h2>
+      <div class="outils"><button data-all="${f.cle}">Tout</button><button data-none="${f.cle}">Aucun</button></div></div>
+    <div class="options">${opts}</div></section>`;
+}
+
+function radio(name, val, texte, actuel) {
+  return `<label class="opt"><input type="radio" name="${name}" value="${val}" ${actuel === val ? 'checked' : ''}><span>${texte}</span></label>`;
+}
+
+function rendrePhase(f) {
+  return `<section class="carte ${f.teinte}">
+    <div class="carte-titre"><h2>${f.titre}</h2></div>
+    <label class="opt"><input type="checkbox" data-phase="prov" ${phase.prov ? 'checked' : ''}><span>Provisoire</span></label>
+    <div class="sous ${phase.prov ? '' : 'inactif'}">
+      ${radio('provSub', 'tous', 'Tous', phase.provSub)}
+      ${radio('provSub', 'intention', 'Intention d\'orientation', phase.provSub)}
+      ${radio('provSub', 'avis', 'Avis provisoire', phase.provSub)}
+    </div>
+    <label class="opt"><input type="checkbox" data-phase="def" ${phase.def ? 'checked' : ''}><span>Définitive</span></label>
+    <div class="sous ${phase.def ? '' : 'inactif'}">
+      ${radio('defSub', 'tous', 'Tous', phase.defSub)}
+      ${radio('defSub', 'choix', 'Choix définitif', phase.defSub)}
+      ${radio('defSub', 'decision', 'Décision d\'orientation', phase.defSub)}
+    </div>
+    <label class="opt"><input type="checkbox" data-phase="appel" ${phase.appel ? 'checked' : ''}><span>Appel</span></label>
+  </section>`;
+}
+
+function rendreTableau() {
+  const filtrees = lignes.filter(l => ligneOk(l));
+  document.getElementById('compteur').textContent = `${filtrees.length} / ${lignes.length} lignes`;
+  const zone = document.getElementById('resultats');
+  if (!filtrees.length) { zone.innerHTML = '<div class="vide">Aucune ligne ne correspond aux filtres choisis.</div>'; return; }
+  const cols = colonnesActives;
+  const titre = k => (COLONNES.find(c => c.name === k) || {}).title || k;
+  const corps = filtrees.slice(0, MAX_LIGNES).map(l =>
+    `<tr>${cols.map(k => `<td>${esc(libelle(l[k]))}</td>`).join('')}</tr>`).join('');
+  zone.innerHTML = `<div class="resultats-tete"><span>Résultats</span>
+      <span>${filtrees.length > MAX_LIGNES ? `${MAX_LIGNES} premières lignes affichées` : ''}</span></div>
+    <div class="table-wrap"><table><thead><tr>${cols.map(k => `<th>${titre(k)}</th>`).join('')}</tr></thead>
+    <tbody>${corps}</tbody></table></div>`;
+}
+
+function rendreTout() {
+  const facettes = FACETTES.filter(f => colonnesActives.includes(f.cle));
+  document.getElementById('app').innerHTML = `
+    <header><h1>Orientation</h1>
+      <div class="resume"><span class="compteur" id="compteur"></span>
+      <button class="btn-reset" id="reset">Réinitialiser</button></div></header>
+    <div class="grille">${facettes.map(rendreFacette).join('')}</div>
+    <div class="resultats" id="resultats"></div>`;
+  rendreTableau();
+}
+
+/* ---------- Événements ---------- */
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.cle) {
+    const f = t.dataset.cle;
+    const v = valeurs(f)[Number(t.dataset.i)][0];
+    exclus[f] = exclus[f] || new Set();
+    t.checked ? exclus[f].delete(v) : exclus[f].add(v);
+    rendreTableau();
+  } else if (t.dataset.phase) {
+    phase[t.dataset.phase] = t.checked;
+    rendreTout();
+  } else if (t.name === 'provSub' || t.name === 'defSub') {
+    phase[t.name] = t.value;
+    rendreTableau();
+  }
+});
+
+document.addEventListener('click', e => {
+  const t = e.target;
+  if (t.dataset.all) { exclus[t.dataset.all] = new Set(); rendreTout(); }
+  if (t.dataset.none) { exclus[t.dataset.none] = new Set(valeurs(t.dataset.none).map(x => x[0])); rendreTout(); }
+  if (t.id === 'reset') {
+    Object.keys(exclus).forEach(k => delete exclus[k]);
+    Object.assign(phase, { prov: true, provSub: 'tous', def: true, defSub: 'tous', appel: true });
+    rendreTout();
+  }
+});
+
+/* ---------- Connexion à Grist ---------- */
+if (typeof grist === 'undefined') {
+  document.getElementById('app').innerHTML =
+    '<div class="message"><strong>API Grist introuvable.</strong><br>Le script grist-plugin-api.js n\'a pas pu être chargé. ' +
+    'Ajoutez le fichier grist-plugin-api.js dans le même dossier GitHub que index.html.</div>';
+} else {
+grist.ready({ requiredAccess: 'read table', columns: COLONNES });
+
+grist.onRecords((records, mappings) => {
+  const mapped = grist.mapColumnNames(records);
+  if (!mapped) {
+    document.getElementById('app').innerHTML =
+      '<div class="message"><strong>Colonnes à associer.</strong><br>Dans le panneau « Données du widget », ' +
+      'associez les colonnes de la table ORIENTATION (palier, phase, sexe, secteur, département, académie).</div>';
+    return;
+  }
+  lignes = mapped;
+  colonnesActives = COLONNES.map(c => c.name).filter(k => mappings && mappings[k]);
+  rendreTout();
+});
+}
+</script>
+</body>
+</html>
