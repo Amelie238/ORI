@@ -90,22 +90,22 @@ const FACETTES = [
   { cle: 'palier',      titre: 'Palier - Formation', teinte: 't-lavande' },
   { cle: 'phase',       titre: 'Phase',              teinte: 't-peche',  speciale: true },
   { cle: 'sexe',        titre: 'Sexe',               teinte: 't-rose' },
-  { cle: 'secteur',     titre: 'Secteur',            teinte: 't-menthe' },
   { cle: 'departement', titre: 'Département',        teinte: 't-ciel' },
   { cle: 'academie',    titre: 'Académie',           teinte: 't-beurre' },
-  { cle: 'ministere',   titre: 'Ministère',          teinte: 't-lavande' }
+  { cle: 'annee',       titre: 'Année scolaire',     teinte: 't-menthe' }
 ];
 
 // Colonnes de la table ORIENTATION (mappées automatiquement si leur nom correspond,
 // sinon à associer dans le panneau « Données du widget » de Grist).
 const COLONNES = [
-  { name: 'palier',      title: 'Palier',      type: 'Any' },
-  { name: 'phase',       title: 'Phase',       type: 'Any' },
-  { name: 'sexe',        title: 'Sexe',        type: 'Any' },
-  { name: 'secteur',     title: 'Secteur',     type: 'Any' },
-  { name: 'departement', title: 'Département', type: 'Any', optional: true },
-  { name: 'academie',    title: 'Académie',    type: 'Any', optional: true },
-  { name: 'ministere',   title: 'Ministère',   type: 'Any', optional: true }
+  { name: 'palier',      title: 'Palier',          type: 'Any' },
+  { name: 'demPhase',    title: 'DEM - Phase',     type: 'Any' },
+  { name: 'demCodeVoie', title: 'DEM - Code Voie', type: 'Any' },
+  { name: 'repCodeVoie', title: 'REP - Code Voie', type: 'Any' },
+  { name: 'sexe',        title: 'Sexe',            type: 'Any' },
+  { name: 'departement', title: 'Département',     type: 'Any', optional: true },
+  { name: 'academie',    title: 'Académie',        type: 'Any', optional: true },
+  { name: 'annee',       title: 'Année scolaire',  type: 'Any', optional: true }
 ];
 
 /* ---------- État ---------- */
@@ -119,31 +119,44 @@ const norm = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const libelle = v => (v === null || v === undefined || v === '') ? '(vide)' : String(v);
 
-// Classe la valeur de la colonne « phase » : { cat: 'prov'|'def'|'appel'|null, sub: string|null }
+// Classe la valeur de la colonne « DEM - Phase » : 'prov' | 'def' | 'appel' | null
 function classerPhase(v) {
   const n = norm(v);
-  if (n.includes('appel')) return { cat: 'appel', sub: null };
-  if (n.includes('intention')) return { cat: 'prov', sub: 'intention' };
-  if (n.includes('avis')) return { cat: 'prov', sub: 'avis' };
-  if (n.includes('choix')) return { cat: 'def', sub: 'choix' };
-  if (n.includes('decision')) return { cat: 'def', sub: 'decision' };
-  if (n.includes('provisoire')) return { cat: 'prov', sub: null };
-  if (n.includes('definitiv')) return { cat: 'def', sub: null };
-  return { cat: null, sub: null };
+  if (n.includes('appel')) return 'appel';
+  if (n.includes('provisoire')) return 'prov';
+  if (n.includes('definitiv')) return 'def';
+  return null;
 }
 
-function phaseOk(v) {
-  const { cat, sub } = classerPhase(v);
+const rempli = v => v !== null && v !== undefined && String(v).trim() !== '';
+
+// Règle de phase :
+//  - Provisoire / Définitive / Appel  → colonne « DEM - Phase »
+//  - Intention d'orientation / Choix définitif    → « DEM - Code Voie » renseigné
+//  - Avis provisoire / Décision d'orientation     → « REP - Code Voie » renseigné
+function phaseOk(l) {
+  const cat = classerPhase(l.demPhase);
   if (cat === 'appel') return phase.appel;
-  if (cat === 'prov') return phase.prov && (phase.provSub === 'tous' || !sub || sub === phase.provSub);
-  if (cat === 'def')  return phase.def  && (phase.defSub  === 'tous' || !sub || sub === phase.defSub);
+  if (cat === 'prov') {
+    if (!phase.prov) return false;
+    if (phase.provSub === 'intention') return rempli(l.demCodeVoie);
+    if (phase.provSub === 'avis') return rempli(l.repCodeVoie);
+    return true;
+  }
+  if (cat === 'def') {
+    if (!phase.def) return false;
+    if (phase.defSub === 'choix') return rempli(l.demCodeVoie);
+    if (phase.defSub === 'decision') return rempli(l.repCodeVoie);
+    return true;
+  }
   return true;
 }
 
 function ligneOk(l, ignorer) {
   for (const f of FACETTES) {
-    if (f.cle === ignorer || !colonnesActives.includes(f.cle)) continue;
-    if (f.speciale) { if (!phaseOk(l[f.cle])) return false; continue; }
+    if (f.cle === ignorer) continue;
+    if (f.speciale) { if (!phaseOk(l)) return false; continue; }
+    if (!colonnesActives.includes(f.cle)) continue;
     if (exclus[f.cle] && exclus[f.cle].has(l[f.cle])) return false;
   }
   return true;
@@ -210,7 +223,7 @@ function rendreTableau() {
 }
 
 function rendreTout() {
-  const facettes = FACETTES.filter(f => colonnesActives.includes(f.cle));
+  const facettes = FACETTES.filter(f => f.speciale || colonnesActives.includes(f.cle));
   document.getElementById('app').innerHTML = `
     <header><h1>Orientation</h1>
       <div class="resume"><span class="compteur" id="compteur"></span>
@@ -262,7 +275,7 @@ grist.onRecords((records, mappings) => {
   if (!mapped) {
     document.getElementById('app').innerHTML =
       '<div class="message"><strong>Colonnes à associer.</strong><br>Dans le panneau « Données du widget », ' +
-      'associez les colonnes de la table ORIENTATION (palier, phase, sexe, secteur, département, académie).</div>';
+      'associez les colonnes de la table ORIENTATION (palier, DEM - Phase, DEM - Code Voie, REP - Code Voie, sexe, département, académie, année scolaire).</div>';
     return;
   }
   lignes = mapped;
